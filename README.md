@@ -27,3 +27,14 @@ java -jar -Xmx2g parceldelivery-0.1.jar C:\\projects\\upwork\\PhilipBanda\\cellp
 
 Note - Depending on how much RAM you have in machine add corresponding -Xmx parametr. 
 For example if you cn allocate 4g to the process type java -jar -Xmx4g parceldelivery-0.1.jar <input file location>
+
+
+How does the shortest path algorithm works
+===============================================
+Code first computes the edge strength between towers. To do this, first it computes the travel route of each user for each day.
+If in the route two towers are adjacent, it computes the time delta of users between each tower and then computes the 
+average time delta in seconds between two towers. A graph with vertices as towers and edge as the time delta between the
+towers is constructed. Also for each tower the most frequent user is computed so that, you can use that
+user to carry the parcel at that tower.
+
+Dijkstr's algorithm is used to compute the shortest path.
