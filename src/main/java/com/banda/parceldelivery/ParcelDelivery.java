@@ -43,6 +43,8 @@ public class ParcelDelivery {
 		String line = null;
 		while((line=in.readLine())!=null) {
 			String[] split = line.split(",");
+			if(split.length < 10 )
+				continue;
 			String productNo=split[0].trim();
 			String towerid=split[1].trim();
 			String cellId=split[2].trim();
