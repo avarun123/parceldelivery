@@ -31,8 +31,8 @@ public class ParcelDelivery {
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
 		try {
-			//readInput("C:\\projects\\upwork\\PhilipBanda\\cellphone.csv");
-			readInput(args[0]);
+			readInput("C:\\projects\\upwork\\PhilipBanda\\cellphone.csv");
+			//readInput(args[0]);
 		} catch(Exception e) {
 			e.printStackTrace( );
 		}
@@ -42,6 +42,7 @@ public class ParcelDelivery {
 		BufferedReader in = new BufferedReader(new FileReader(inputfile));
 		String line = null;
 		while((line=in.readLine())!=null) {
+			
 			String[] split = line.split(",");
 			if(split.length < 10 )
 				continue;
@@ -74,17 +75,18 @@ public class ParcelDelivery {
 			// map with user as key. Value is a map with Date string as key and a list of activity as value
 		
 			Map<String,Activity> activityForUser = userActivityMap.get(userId);
+			
 			if( activityForUser == null){
 				activityForUser = new HashMap<String,Activity>();
 				userActivityMap.put(userId, activityForUser);
 			}
 			Activity firstActivityForTheDay = activityForUser.get(day);
 			if(firstActivityForTheDay == null) {
-				firstActivityForTheDay = new Activity(dt.getTime(), towerid, userId);
+				firstActivityForTheDay = new Activity(dt.getTime(), towerid, userId,dt.getHours());
 				activityForUser.put(day, firstActivityForTheDay);
 			} else {
 				// insert activity at the right position so that the list is always sorted
-				Activity activity = new Activity(dt.getTime(), towerid, userId);
+				Activity activity = new Activity(dt.getTime(), towerid, userId,dt.getHours());
 				if(activity.compareTo(firstActivityForTheDay) < 0){
 					
 					activity.next  = firstActivityForTheDay;
@@ -115,8 +117,11 @@ public class ParcelDelivery {
 		
 		// now process each users activity for the day and compute the average time difference between adjacent towers
 		 
+		Map<String,Map<String,SummaryStatistics>> usersToTowerPairs = new HashMap<>(); // map to associate a tower pair with a user. key tower1-tower2, value user id
+		
 		Map<String,SummaryStatistics> towerDistances = new HashMap<>();
 		SummaryStatistics stats = new SummaryStatistics();
+		Map<String,Map<String,Integer>> userToTowerCount = new HashMap<>();
 		for(Entry<String,Map<String,Activity>> e:userActivityMap.entrySet()) {
 			String userId = e.getKey();
 			Map<String,Activity> activitiesForEachDay = e.getValue();
@@ -141,6 +146,16 @@ public class ParcelDelivery {
 						} else {
 							userCount.put(userId, new Integer(userCount.get(userId).intValue()+1));
 						}
+						
+						if(userToTowerCount.get(userId) == null) {
+							userToTowerCount.put(userId, new HashMap<String,Integer>());
+						}
+						Map<String,Integer> towerCount = userToTowerCount.get(userId);
+						if(towerCount.get(current.towerId) == null){
+							towerCount.put(current.towerId, new Integer(1));
+						} else {
+							towerCount.put(current.towerId, new Integer(towerCount.get(current.towerId).intValue()+1));
+						}
 					//}
 					if(current!=null && previous!=null) {
 						String first = previous.towerId, second = current.towerId;
@@ -148,13 +163,21 @@ public class ParcelDelivery {
 							first = current.towerId;
 							second = previous.towerId;
 						}
+						if(first.equalsIgnoreCase("5715") && second.equalsIgnoreCase("5826")) {
+							System.out.println();
+						}
 						if(towerDistances.get(first+";"+second) == null && !(first.equals(second))){
 							towerDistances.put(first+";"+second, new SummaryStatistics());
-							
+							usersToTowerPairs.put(first+";"+second, new HashMap<String,SummaryStatistics>());
 						}
 						
-						if(!(first.equals(second)) )
-						towerDistances.get(first+";"+second).addValue((current.timeStamp - previous.timeStamp)/1000);
+						if(!(first.equals(second)) ) {
+							towerDistances.get(first+";"+second).addValue((current.timeStamp - previous.timeStamp)/1000);
+							if(usersToTowerPairs.get(first+";"+second).get(userId) == null) {
+								usersToTowerPairs.get(first+";"+second).put(userId,new SummaryStatistics());
+							}
+							usersToTowerPairs.get(first+";"+second).get(userId).addValue(1);
+						}
 					}
 					previous = current;
 					current = current.next;
@@ -162,8 +185,9 @@ public class ParcelDelivery {
 			}
 		}
 		
-		// find the users who are mostly associated with a tower
+		// find the users who are mostly associated with a tower 
 		Map<String,String> towerToUserMap = new HashMap<>();
+		Map<String,String> userToTowerMap =  new HashMap<>();
 		for(String tower:towerToUserCount.keySet()) {
 			int max = Integer.MIN_VALUE;
 			Map<String,Integer> map = towerToUserCount.get(tower);
@@ -172,6 +196,38 @@ public class ParcelDelivery {
 					if(map.get(user).intValue() > max) {
 						max = map.get(user).intValue();
 						towerToUserMap.put(tower, user);
+						//userToTowerMap.put(user, tower);
+					}
+				}
+			}
+		}
+		
+		
+		for(String user:userToTowerCount.keySet()) {
+			int max = Integer.MIN_VALUE;
+			Map<String,Integer> map = userToTowerCount.get(user);
+			for(String tower:map.keySet()) {
+				if(map.get(tower)!=null) {
+					if(map.get(tower).intValue() > max) {
+						max = map.get(tower).intValue();
+						//towerToUserMap.put(tower, user);
+						userToTowerMap.put(user, tower);
+					}
+				}
+			}
+		}
+		
+		Map<String,String> towerPairToUserMap = new HashMap<>();
+		for(String towerPair:usersToTowerPairs.keySet()) {
+			if(towerPair.equals("5715;5826"))
+				System.out.println();
+			Map<String,SummaryStatistics> map = usersToTowerPairs.get(towerPair);
+			double max=  Double.MIN_VALUE;
+			for(String user:map.keySet()) {
+				if(map.get(user)!=null) {
+					if(map.get(user).getSum() > max) {
+						max = map.get(user).getSum();
+						towerPairToUserMap.put(towerPair, user);
 					}
 				}
 			}
@@ -194,29 +250,53 @@ public class ParcelDelivery {
 		}
 		 String input = "";
 		while(input!=null && !input.toLowerCase().equals("q")) {
-			System.out.println("Enter input in the format tower1,tower2");
+			System.out.println("Enter input in the format userid1,userid2");
 			
 			  in = new BufferedReader(new InputStreamReader(System.in));
 			  input = in.readLine();
 			  String[] split = input.split(",");
 			  if(split.length!=2) {
-				  System.out.println("Enter input in the format tower1,tower2");
+				  System.out.println("Enter input in the format userid1,userid2");
 				  continue;
 			  }
 			
-
-			  if(!towergraph.containsVertex(split[0])) {
-				 System.out.println("Tower "+split[0]+" Does not exist. Input a valid pair of towers");
+              String tower1 = userToTowerMap.get(split[0]);
+              if(tower1 == null) {
+            	  System.out.println("No cell tower found with user activity by user "+split[0]+" Enter a different start user");
+            	  continue;
+              }
+              String tower2 = userToTowerMap.get(split[1]);
+              if(tower2 == null) {
+            	  System.out.println("No cell tower found with user activity by user "+split[1]+" Enter a different end user");
+            	  continue;
+              }
+			  if(!towergraph.containsVertex(tower1)) {
+				 System.out.println("Tower "+tower1+" Does not exist. Input a valid pair of towers");
 				 continue;
 			 }
-			 if(!towergraph.containsVertex(split[1])) {
-				 System.out.println("Tower "+split[1]+" Does not exist. Input a valid pair of towers");
+			 if(!towergraph.containsVertex(tower2)) {
+				 System.out.println("Tower "+tower2+" Does not exist. Input a valid pair of towers");
 				 continue;
 			 }
-			 List<DefaultWeightedEdge> path= DijkstraShortestPath.findPathBetween(towergraph, split[0], split[1]);
-			 System.out.println("Printing shortest path between the towers "+split[0]+" and " +split[1]+ " Along with users to be assigned at each tower");
+			 List<DefaultWeightedEdge> path= DijkstraShortestPath.findPathBetween(towergraph, tower1, tower2);
+			 System.out.println("Printing shortest path between the users "+split[0]+" and " +split[1]+ " Along with users to be assigned at each intermediate path");
+			 int i=0;
 			 for(DefaultWeightedEdge edge:path){
-				 System.out.println(edge+","+towergraph.getEdgeWeight(edge)+" Users at tower "+towergraph.getEdgeSource(edge)+"  = "+towerToUserMap.get(towergraph.getEdgeSource(edge))+" User at tower "+towergraph.getEdgeTarget(edge)+" = "+towerToUserMap.get(towergraph.getEdgeTarget(edge)));
+				 i++;
+				 String towerSource = towergraph.getEdgeSource(edge);
+				 String towerTarget = towergraph.getEdgeTarget(edge);
+				 String first=towerTarget;String second = towerSource;
+				 if(towerTarget.compareTo(towerSource) > 0)
+				 {
+					 first = towerSource;
+					 second = towerTarget;
+				 }
+				 String user = towerPairToUserMap.get(first+";"+second);
+//				 if(user == null){
+//					 user = towerToUserMap.get(towerSource);
+//				 }
+				 System.out.println("Intermedite User "+i+" = "+user);
+				 //System.out.println(edge+","+towergraph.getEdgeWeight(edge)+" Users at tower "+towergraph.getEdgeSource(edge)+"  = "+towerToUserMap.get(towergraph.getEdgeSource(edge))+" User at tower "+towergraph.getEdgeTarget(edge)+" = "+towerToUserMap.get(towergraph.getEdgeTarget(edge)));
 			 }
 		}
 	}
@@ -226,6 +306,7 @@ public class ParcelDelivery {
 		String towerId;
 		String userid;
 		Activity next;
+		int hourOfDay;
 		@Override
 		
 		public int compareTo(Object that){
@@ -239,11 +320,12 @@ public class ParcelDelivery {
 						
 			
 		}
-		public Activity(long timeStamp, String towerId, String userid) {
+		public Activity(long timeStamp, String towerId, String userid,int hourOfDay) {
 			super();
 			this.timeStamp = timeStamp;
 			this.towerId = towerId;
 			this.userid = userid;
+			this.hourOfDay = hourOfDay;
 		}
 		
 	}
