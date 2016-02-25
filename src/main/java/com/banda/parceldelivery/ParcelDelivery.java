@@ -31,8 +31,8 @@ public class ParcelDelivery {
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
 		try {
-			readInput("C:\\projects\\upwork\\PhilipBanda\\cellphone.csv");
-			//readInput(args[0]);
+			//readInput("C:\\projects\\upwork\\PhilipBanda\\cellphone.csv");
+			readInput(args[0]);
 		} catch(Exception e) {
 			e.printStackTrace( );
 		}
